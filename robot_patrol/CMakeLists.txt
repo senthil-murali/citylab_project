@@ -12,6 +12,22 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
+
+# Add executable
+add_executable(patrol_executable src/patrol.cpp)
+ament_target_dependencies(patrol_executable
+  rclcpp
+  std_msgs
+  sensor_msgs
+  geometry_msgs
+)
+
+# Install executables
+install(TARGETS
+  patrol_executable
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
