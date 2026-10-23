@@ -6,7 +6,7 @@ import launch_ros.actions
 def generate_launch_description():
 
     rviz_config = os.path.join(
-        get_package_share_directory('robot_patrol'), 'rviz', 'patrol.rviz')
+        get_package_share_directory('robot_patrol'), 'rviz', 'robot_patrol.rviz')
 
     # Nodes
     patrol_node = launch_ros.actions.Node(
@@ -14,7 +14,7 @@ def generate_launch_description():
         executable='patrol_executable',
         output='screen',
     )
-    
+
     rviz_node = launch_ros.actions.Node(
         package='rviz2',
         executable='rviz2',

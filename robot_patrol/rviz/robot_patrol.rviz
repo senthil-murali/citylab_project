@@ -240,7 +240,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: ""
+        Value: "/fastbot_1/odom"
       Value: true
   Enabled: true
   Global Options:
