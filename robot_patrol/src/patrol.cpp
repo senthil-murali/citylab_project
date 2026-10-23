@@ -1,7 +1,7 @@
-
 #include "rclcpp/logging.hpp"
 #include "rclcpp/node.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <geometry_msgs/msg/twist.hpp>
@@ -104,13 +104,48 @@ private:
     for (int i = 0; i <= angle_to_index(90); i++) {
       front_ranges_left_.push_back(msg->ranges[i]);
     }
-
-    // Need to get teh laser scan use teh fron 180
-    // ignore inf and Nan values below range_min and range_max
   }
-  void timer_callback() {}
+  void timer_callback() {
+    if (!scan_received_)
+      return;
 
-  geometry_msgs::msg::Twist t_msg;
+    int w = angle_to_index(20);
+    float front_min_left = scan_info_.range_max;
+    float front_min_right = scan_info_.range_max;
+    float front_max_left = scan_info_.range_min;
+    float front_max_right = scan_info_.range_min;
+
+    int left_size = static_cast<int>(front_ranges_left_.size());
+    for (int i = 0; i < left_size; i++) {
+      float r = front_ranges_left_[i];
+      if (is_valid(r) && r < front_min_left && i <= w)
+        front_min_left = r;
+
+      if (is_valid(r) && r > front_max_left)
+        front_max_left = r;
+    }
+
+    int right_size = static_cast<int>(front_ranges_right_.size());
+    for (int i = 0; i < right_size; i++) {
+      float r = front_ranges_right_[i];
+      if (is_valid(r) && r < front_min_right && i >= (right_size - w))
+        front_min_right = r;
+      if (is_valid(r) && r > front_max_right)
+        front_max_right = r;
+    }
+
+    float front_min = std::min(front_min_left, front_min_right);
+    geometry_msgs::msg::Twist cmd;
+    if (front_min > 0.35) {
+      cmd.linear.x = 0.1;
+      cmd.angular.z = 0.0;
+    } else {
+      cmd.linear.x = 0.05;
+      cmd.angular.z = (front_max_left > front_max_right) ? 0.5 : -0.5;
+    }
+    publisher_->publish(cmd);
+  }
+
   sensor_msgs::msg::LaserScan::SharedPtr scan_data_;
   Scanner scan_info_;
   bool scan_received_;
