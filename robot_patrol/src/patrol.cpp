@@ -3,9 +3,11 @@
 #include "rclcpp/node.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <chrono>
+#include <cmath>
 #include <geometry_msgs/msg/twist.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <string>
+#include <vector>
 
 struct Scanner {
   double angle_min{0.0};
@@ -37,12 +39,40 @@ public:
   }
 
 private:
+  int angle_to_index(double angle_deg) {
+
+    double angle_rad = angle_deg * M_PI / 180.0;
+    double nth_ray =
+        (angle_rad - scan_info_.angle_min) / scan_info_.angle_increments;
+
+    // nearest whole number
+    int index = static_cast<int>(std::round(nth_ray));
+    int total_rays = static_cast<int>(scan_info_.ray_count);
+
+    return (index + total_rays) % total_rays;
+  }
+
+  bool is_valid(float r) {
+    if (!std::isfinite(r))
+      return false;
+    if (r < scan_info_.range_min)
+      return false;
+    if (r > scan_info_.range_max)
+      return false;
+    return true;
+  }
+
   void laserscan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+    // getting the pointer data so we can use teh timer callback as a control
+    // loop.
     scan_data_ = msg;
+
     if (!scan_received_) {
 
       scan_info_.angle_min = msg->angle_min;
       scan_info_.angle_max = msg->angle_max;
+      scan_info_.range_max = msg->range_max;
+      scan_info_.range_min = msg->range_min;
       scan_info_.angle_increments = msg->angle_increment;
       scan_info_.ray_count = msg->ranges.size();
       scan_received_ = true;
@@ -52,6 +82,27 @@ private:
                   " Ray count: %zu ",
                   scan_info_.angle_min, scan_info_.angle_max,
                   scan_info_.angle_increments, scan_info_.ray_count);
+      int a = angle_to_index(0);
+      int b = angle_to_index(90);
+      int c = angle_to_index(-90);
+      int d = angle_to_index(360);
+      RCLCPP_INFO(this->get_logger(), " 0:%d ,90 : %d , -90: %d , 360 : %d", a,
+                  b, c, d);
+    }
+
+    front_ranges_left_.clear();
+    front_ranges_right_.clear();
+
+    int n = static_cast<int>(msg->ranges.size());
+
+    //-90 - 0
+    for (int i = angle_to_index(-90); i < n; i++) {
+      front_ranges_right_.push_back(msg->ranges[i]);
+    }
+
+    // 0 - 90
+    for (int i = 0; i <= angle_to_index(90); i++) {
+      front_ranges_left_.push_back(msg->ranges[i]);
     }
 
     // Need to get teh laser scan use teh fron 180
@@ -63,6 +114,8 @@ private:
   sensor_msgs::msg::LaserScan::SharedPtr scan_data_;
   Scanner scan_info_;
   bool scan_received_;
+  std::vector<float> front_ranges_left_;
+  std::vector<float> front_ranges_right_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscriber_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
